@@ -1,38 +1,39 @@
-import os
+# launcher.py
 import sys
 import subprocess
 import webbrowser
 from pathlib import Path
 
-def main():
-    # Diretório base
-    if getattr(sys, 'frozen', False):
-        base_dir = Path(sys._MEIPASS) if hasattr(sys, "_MEIPASS") else Path(sys.executable).parent
-        work_dir = Path(sys.executable).parent
+PORT = "8510"  # porta fixa (ajuste se necessário)
+
+def resource_path(rel: str) -> Path:
+    """Resolve caminho tanto no EXE (onefile) quanto no dev."""
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        base = Path(sys._MEIPASS)   # conteúdo extraído do onefile
     else:
-        base_dir = Path(__file__).parent
-        work_dir = base_dir
+        base = Path(__file__).parent
+    return (base / rel).resolve()
 
-    # Caminho do app.py
-    app_path = work_dir / "app.py"
+def main():
+    app_path = resource_path("app.py")
+
+    # fallback: tentar ao lado do executável (ex.: onedir)
     if not app_path.exists():
-        maybe_app = Path(sys._MEIPASS) / "app.py" if hasattr(sys, "_MEIPASS") else None
-        if maybe_app and maybe_app.exists():
-            app_path = maybe_app
+        alt = Path(sys.executable).parent / "app.py"
+        if alt.exists():
+            app_path = alt
         else:
-            raise FileNotFoundError("Não encontrei o app.py ao lado do executável.")
+            raise FileNotFoundError("app.py não encontrado no bundle nem ao lado do executável.")
 
-    # Abre navegador automaticamente
-    try:
-        webbrowser.open("http://localhost:8510", new=2)
-    except Exception:
-        pass
-
-    # Executa o streamlit
-    cmd = [sys.executable, "-m", "streamlit", "run", str(app_path),
-           "--server.headless", "true", "--server.port", "8510"]
-
-    subprocess.call(cmd, cwd=str(work_dir))
+    # inicia o streamlit no app.py empacotado
+    cmd = [
+        sys.executable, "-m", "streamlit", "run", str(app_path),
+        "--server.headless", "true",
+        "--server.port", PORT,
+        "--browser.gatherUsageStats", "false",
+    ]
+    subprocess.Popen(cmd)  # inicia o servidor
+    webbrowser.open_new_tab(f"http://localhost:{PORT}")  # abre o navegador
 
 if __name__ == "__main__":
     main()
